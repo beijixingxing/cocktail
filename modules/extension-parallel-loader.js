@@ -246,7 +246,7 @@ function renderCocktailSettings(container, ctx) {
     enabled.id = 'stepl_enabled';
     enabled.type = 'checkbox';
     label1.appendChild(enabled);
-    label1.appendChild(document.createTextNode(' Enable'));
+    label1.appendChild(document.createTextNode(' 启用'));
 
     const label2 = document.createElement('label');
     label2.className = 'cocktail-check';
@@ -254,14 +254,14 @@ function renderCocktailSettings(container, ctx) {
     debugBox.id = 'stepl_debug';
     debugBox.type = 'checkbox';
     label2.appendChild(debugBox);
-    label2.appendChild(document.createTextNode(' Debug logs'));
+    label2.appendChild(document.createTextNode(' Debug 日志'));
 
     grid.appendChild(label1);
     grid.appendChild(label2);
 
     const help = document.createElement('div');
     help.className = 'cocktail-help';
-    help.textContent = 'Description: Extension parallel loader analyzes extension dependencies, loads independent extensions in parallel, reduces startup time significantly.';
+    help.textContent = '说明：扩展并行加载器分析扩展依赖关系，无依赖的扩展同时加载，显著减少启动时间。';
 
     root.appendChild(grid);
     root.appendChild(help);
@@ -298,7 +298,7 @@ function renderCocktailSettings(container, ctx) {
 
 registerCocktailSubpanel({
     id: EXTENSION_NAME,
-    title: 'Extension Parallel Loader',
+    title: '扩展并行加载',
     order: 15,
     render: renderCocktailSettings,
 });
