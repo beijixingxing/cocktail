@@ -15,11 +15,27 @@ if (globalThis.__stExtensionParallelLoaderLoaded) {
     globalThis.__stExtensionParallelLoaderLoaded = true;
 }
 
+/**
+ * @typedef {Object} ExtensionParallelLoaderSettings
+ * @property {boolean} enabled
+ * @property {boolean} debug
+ */
+
 const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     debug: false,
 });
 
+/**
+ * @typedef {Object} ExtensionParallelLoaderState
+ * @property {number} t0
+ * @property {Object|null} ctx
+ * @property {ExtensionParallelLoaderSettings|null} settings
+ * @property {Function|null} originalLoadExtensions
+ * @property {boolean} hooksInstalled
+ */
+
+/** @type {ExtensionParallelLoaderState} */
 const STATE = {
     t0: performance.now(),
     ctx: null,
@@ -42,6 +58,10 @@ function getCtx() {
     }
 }
 
+/**
+ * @param {Object|null} ctx
+ * @returns {ExtensionParallelLoaderSettings|null}
+ */
 function ensureSettings(ctx) {
     const root = ctx?.extensionSettings;
     if (!root) return null;
@@ -59,6 +79,9 @@ function ensureSettings(ctx) {
     return s;
 }
 
+/**
+ * @param {Object|null} ctx
+ */
 function saveSettings(ctx) {
     try {
         ctx?.saveSettingsDebounced?.();
@@ -67,6 +90,13 @@ function saveSettings(ctx) {
     }
 }
 
+/**
+ * @param {any} value
+ * @param {number} min
+ * @param {number} max
+ * @param {number} fallback
+ * @returns {number}
+ */
 function clampInt(value, min, max, fallback) {
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
@@ -135,14 +165,14 @@ async function loadExtensionsParallel(extensions, loadOne) {
         if (missingDeps.length > 0) {
             debug(`extension ${name} waiting for dependencies:`, missingDeps);
             await Promise.all(missingDeps.map(dep => {
-                return new Promise((resolve) => {
+                return /** @type {Promise<void>} */ (new Promise((resolve) => {
                     const checkInterval = setInterval(() => {
                         if (loaded.has(dep) || failed.has(dep)) {
                             clearInterval(checkInterval);
                             resolve();
                         }
                     }, 50);
-                });
+                }));
             }));
         }
 
