@@ -10,7 +10,7 @@ import { registerCocktailSubpanel } from '../core/subpanels.js';
 const EXTENSION_NAME = 'st-extension-parallel-loader';
 
 if (globalThis.__stExtensionParallelLoaderLoaded) {
-    console.debug(`[${EXTENSION_NAME}] already loaded, skipping init`);
+    console.debug('[' + EXTENSION_NAME + '] already loaded, skipping init');
 } else {
     globalThis.__stExtensionParallelLoaderLoaded = true;
 }
@@ -46,7 +46,7 @@ const STATE = {
 
 function debug(...args) {
     if (STATE.settings?.debug) {
-        console.debug(`[${EXTENSION_NAME}]`, ...args);
+        console.debug('[' + EXTENSION_NAME + ']', ...args);
     }
 }
 
@@ -86,7 +86,7 @@ function saveSettings(ctx) {
     try {
         ctx?.saveSettingsDebounced?.();
     } catch (e) {
-        console.warn(`[${EXTENSION_NAME}] saveSettingsDebounced failed`, e);
+        console.warn('[' + EXTENSION_NAME + '] saveSettingsDebounced failed', e);
     }
 }
 
@@ -163,7 +163,7 @@ async function loadExtensionsParallel(extensions, loadOne) {
         const missingDeps = dependencies.filter(dep => !loaded.has(dep));
 
         if (missingDeps.length > 0) {
-            debug(`extension ${name} waiting for dependencies:`, missingDeps);
+            debug('extension ' + name + ' waiting for dependencies:', missingDeps);
             await Promise.all(missingDeps.map(dep => {
                 return /** @type {Promise<void>} */ (new Promise((resolve) => {
                     const checkInterval = setInterval(() => {
@@ -195,7 +195,7 @@ async function loadExtensionsParallel(extensions, loadOne) {
             }
         } catch (e) {
             failed.add(name);
-            console.error(`[${EXTENSION_NAME}] failed to load extension:`, name, e);
+            console.error('[' + EXTENSION_NAME + '] failed to load extension:', name, e);
         } finally {
             node.loading = false;
         }
@@ -229,7 +229,7 @@ function tryHookExtensionLoading() {
         debug('extension loading hook installed');
         STATE.hooksInstalled = true;
     } catch (e) {
-        console.warn(`[${EXTENSION_NAME}] hook installation failed`, e);
+        console.warn('[' + EXTENSION_NAME + '] hook installation failed', e);
     }
 }
 
@@ -275,7 +275,7 @@ function renderCocktailSettings(container, ctx) {
 
 registerCocktailSubpanel({
     id: EXTENSION_NAME,
-    title: '扩展并行加载',
+    title: 'Extension Parallel Loader',
     order: 15,
     render: renderCocktailSettings,
 });
@@ -283,14 +283,14 @@ registerCocktailSubpanel({
 async function init() {
     const ctx = getCtx();
     if (!ctx) {
-        console.warn(`[${EXTENSION_NAME}] SillyTavern context not available`);
+        console.warn('[' + EXTENSION_NAME + '] SillyTavern context not available');
         return;
     }
 
     STATE.ctx = ctx;
     STATE.settings = ensureSettings(ctx);
     if (!STATE.settings) {
-        console.warn(`[${EXTENSION_NAME}] extension settings not available`);
+        console.warn('[' + EXTENSION_NAME + '] extension settings not available');
         return;
     }
 
@@ -301,5 +301,5 @@ async function init() {
 try {
     init();
 } catch (e) {
-    console.error(`[${EXTENSION_NAME}] init crashed`, e);
+    console.error('[' + EXTENSION_NAME + '] init crashed', e);
 }
