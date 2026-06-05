@@ -236,21 +236,7 @@ function tryHookExtensionLoading() {
 function renderCocktailSettings(container, ctx) {
     const root = document.createElement('div');
     root.className = 'cocktail-form';
-    root.innerHTML = `
-        <div class="cocktail-grid">
-            <label class="cocktail-check">
-                <input id="stepl_enabled" type="checkbox">
-                启用
-            </label>
-            <label class="cocktail-check">
-                <input id="stepl_debug" type="checkbox">
-                Debug 日志
-            </label>
-        </div>
-        <div class="cocktail-help">
-            说明：扩展并行加载器分析扩展依赖关系，无依赖的扩展同时加载，显著减少启动时间。
-        </div>
-    `;
+    root.innerHTML = '\n        <div class="cocktail-grid">\n            <label class="cocktail-check">\n                <input id="stepl_enabled" type="checkbox">\n                Enable\n            </label>\n            <label class="cocktail-check">\n                <input id="stepl_debug" type="checkbox">\n                Debug logs\n            </label>\n        </div>\n        <div class="cocktail-help">\n            Description: Extension parallel loader analyzes extension dependencies, loads independent extensions in parallel, reduces startup time significantly.\n        </div>\n    ';
 
     container.appendChild(root);
 
