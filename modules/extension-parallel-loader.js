@@ -236,40 +236,63 @@ function tryHookExtensionLoading() {
 function renderCocktailSettings(container, ctx) {
     const root = document.createElement('div');
     root.className = 'cocktail-form';
-    root.innerHTML = '\n        <div class="cocktail-grid">\n            <label class="cocktail-check">\n                <input id="stepl_enabled" type="checkbox">\n                Enable\n            </label>\n            <label class="cocktail-check">\n                <input id="stepl_debug" type="checkbox">\n                Debug logs\n            </label>\n        </div>\n        <div class="cocktail-help">\n            Description: Extension parallel loader analyzes extension dependencies, loads independent extensions in parallel, reduces startup time significantly.\n        </div>\n    ';
 
+    const grid = document.createElement('div');
+    grid.className = 'cocktail-grid';
+
+    const label1 = document.createElement('label');
+    label1.className = 'cocktail-check';
+    const enabled = document.createElement('input');
+    enabled.id = 'stepl_enabled';
+    enabled.type = 'checkbox';
+    label1.appendChild(enabled);
+    label1.appendChild(document.createTextNode(' Enable'));
+
+    const label2 = document.createElement('label');
+    label2.className = 'cocktail-check';
+    const debugBox = document.createElement('input');
+    debugBox.id = 'stepl_debug';
+    debugBox.type = 'checkbox';
+    label2.appendChild(debugBox);
+    label2.appendChild(document.createTextNode(' Debug logs'));
+
+    grid.appendChild(label1);
+    grid.appendChild(label2);
+
+    const help = document.createElement('div');
+    help.className = 'cocktail-help';
+    help.textContent = 'Description: Extension parallel loader analyzes extension dependencies, loads independent extensions in parallel, reduces startup time significantly.';
+
+    root.appendChild(grid);
+    root.appendChild(help);
     container.appendChild(root);
-
-    const $ = (sel) => /** @type {HTMLInputElement|null} */ (root.querySelector(sel));
-    const enabled = $('#stepl_enabled');
-    const debugBox = $('#stepl_debug');
 
     const refreshUI = () => {
         const s = ensureSettings(ctx);
         if (!s) return;
         STATE.settings = s;
-        if (enabled) enabled.checked = Boolean(s.enabled);
-        if (debugBox) debugBox.checked = Boolean(s.debug);
+        enabled.checked = Boolean(s.enabled);
+        debugBox.checked = Boolean(s.debug);
     };
 
     const onChange = () => {
         const s = ensureSettings(ctx);
         if (!s) return;
 
-        if (enabled) s.enabled = Boolean(enabled.checked);
-        if (debugBox) s.debug = Boolean(debugBox.checked);
+        s.enabled = Boolean(enabled.checked);
+        s.debug = Boolean(debugBox.checked);
 
         STATE.settings = s;
         saveSettings(ctx);
         refreshUI();
     };
 
-    [enabled, debugBox].forEach((el) => el?.addEventListener('change', onChange));
+    [enabled, debugBox].forEach((el) => el.addEventListener('change', onChange));
 
     refreshUI();
 
     return () => {
-        [enabled, debugBox].forEach((el) => el?.removeEventListener('change', onChange));
+        [enabled, debugBox].forEach((el) => el.removeEventListener('change', onChange));
     };
 }
 
