@@ -25,6 +25,8 @@ const DEFAULT_SETTINGS = Object.freeze({
     prefetchEnabled: true,
     dedupeFetch: true,
     prefetchTimeoutMs: 15000,
+    adaptiveTimeout: true,
+    smartCache: true,
     debug: false,
 });
 
@@ -85,6 +87,8 @@ function ensureSettings(ctx) {
     s.prefetchEnabled = Boolean(s.prefetchEnabled);
     s.dedupeFetch = Boolean(s.dedupeFetch);
     s.prefetchTimeoutMs = clampInt(s.prefetchTimeoutMs, 0, 600000, DEFAULT_SETTINGS.prefetchTimeoutMs);
+    s.adaptiveTimeout = Boolean(s.adaptiveTimeout);
+    s.smartCache = Boolean(s.smartCache);
     s.debug = Boolean(s.debug);
 
     return s;
@@ -261,6 +265,67 @@ function responseFromPrefetch(result) {
     });
 }
 
+/**
+ * 获取自适应超时时间（根据网络状况）
+ */
+function getAdaptiveTimeout() {
+    if (!STATE.settings?.adaptiveTimeout) {
+        return STATE.settings?.prefetchTimeoutMs || DEFAULT_SETTINGS.prefetchTimeoutMs;
+    }
+
+    try {
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!connection) {
+            return DEFAULT_SETTINGS.prefetchTimeoutMs;
+        }
+
+        const effectiveType = connection.effectiveType;
+        switch (effectiveType) {
+            case '4g':
+                return 10000;
+            case '3g':
+                return 25000;
+            case '2g':
+                return 45000;
+            case 'slow-2g':
+                return 60000;
+            default:
+                return DEFAULT_SETTINGS.prefetchTimeoutMs;
+        }
+    } catch (e) {
+        debug('getAdaptiveTimeout failed, using default', e);
+        return DEFAULT_SETTINGS.prefetchTimeoutMs;
+    }
+}
+
+/**
+ * 智能缓存管理 - 在 APP_READY 时清理低使用频率的缓存
+ */
+function manageSmartCache() {
+    if (!STATE.settings?.smartCache) {
+        STATE.prefetch.clear();
+        debug('smartCache disabled, clearing all');
+        return;
+    }
+
+    const KEEP_THRESHOLD = 1;
+    const kept = [];
+    const cleared = [];
+
+    for (const [pathname, entry] of STATE.prefetch.entries()) {
+        const usedCount = entry.usedCount || 0;
+        if (usedCount >= KEEP_THRESHOLD) {
+            kept.push({ pathname, key: entry.key, usedCount });
+        } else {
+            cleared.push({ pathname, key: entry.key, usedCount });
+            STATE.prefetch.delete(pathname);
+        }
+    }
+
+    mark('prefetch.manage', { kept: kept.length, cleared: cleared.length, total: kept.length + cleared.length });
+    debug('smartCache management completed', { kept, cleared });
+}
+
 function installFetchWrapper(ctx) {
     if (STATE.fetchWrapped) return;
 
@@ -347,7 +412,7 @@ function maybeStartPrefetch(ctx) {
     if (!STATE.settings?.enabled || !STATE.settings?.prefetchEnabled) return;
     if (!STATE.fetchWrapped || !STATE.baseFetch) return;
 
-    const timeoutMs = STATE.settings.prefetchTimeoutMs;
+    const timeoutMs = getAdaptiveTimeout();
     const headersJson = ctx?.getRequestHeaders?.() || { 'Content-Type': 'application/json' };
     const headersNoCT = ctx?.getRequestHeaders?.({ omitContentType: true }) || {};
 
@@ -385,7 +450,7 @@ function maybeStartPrefetch(ctx) {
         });
 
         mark('prefetch.start', { key: item.key, pathname: item.pathname });
-        debug(`prefetch started: ${item.pathname}`);
+        debug(`prefetch started: ${item.pathname} with timeout ${timeoutMs}ms`);
     }
 }
 
@@ -443,6 +508,16 @@ async function registerSettingsPanel(ctx) {
               </label>
 
               <label style="display:flex; gap:8px; align-items:center;">
+                <input id="stso_adaptiveTimeout" type="checkbox">
+                自适应超时（根据网络状况）
+              </label>
+
+              <label style="display:flex; gap:8px; align-items:center;">
+                <input id="stso_smartCache" type="checkbox">
+                智能缓存管理（保留高使用频率）
+              </label>
+
+              <label style="display:flex; gap:8px; align-items:center;">
                 预取超时(ms)
                 <input id="stso_timeout" type="number" min="0" max="600000" step="500" style="width:120px;">
               </label>
@@ -467,6 +542,8 @@ async function registerSettingsPanel(ctx) {
                     const hintBadge = $('#stso_hintBadge');
                     const prefetch = $('#stso_prefetch');
                     const dedupe = $('#stso_dedupe');
+                    const adaptiveTimeout = $('#stso_adaptiveTimeout');
+                    const smartCache = $('#stso_smartCache');
                     const timeout = $('#stso_timeout');
                     const debugBox = $('#stso_debug');
 
@@ -480,6 +557,8 @@ async function registerSettingsPanel(ctx) {
                         if (hintBadge) hintBadge.checked = Boolean(s.hintBadge);
                         if (prefetch) prefetch.checked = Boolean(s.prefetchEnabled);
                         if (dedupe) dedupe.checked = Boolean(s.dedupeFetch);
+                        if (adaptiveTimeout) adaptiveTimeout.checked = Boolean(s.adaptiveTimeout);
+                        if (smartCache) smartCache.checked = Boolean(s.smartCache);
                         if (timeout) timeout.value = String(s.prefetchTimeoutMs);
                         if (debugBox) debugBox.checked = Boolean(s.debug);
                     };
@@ -494,6 +573,8 @@ async function registerSettingsPanel(ctx) {
                         if (hintBadge) s.hintBadge = Boolean(hintBadge.checked);
                         if (prefetch) s.prefetchEnabled = Boolean(prefetch.checked);
                         if (dedupe) s.dedupeFetch = Boolean(dedupe.checked);
+                        if (adaptiveTimeout) s.adaptiveTimeout = Boolean(adaptiveTimeout.checked);
+                        if (smartCache) s.smartCache = Boolean(smartCache.checked);
                         if (timeout) s.prefetchTimeoutMs = clampInt(timeout.value, 0, 600000, DEFAULT_SETTINGS.prefetchTimeoutMs);
                         if (debugBox) s.debug = Boolean(debugBox.checked);
 
@@ -521,6 +602,8 @@ async function registerSettingsPanel(ctx) {
                         hintBadge,
                         prefetch,
                         dedupe,
+                        adaptiveTimeout,
+                        smartCache,
                         timeout,
                         debugBox,
                     ].forEach((el) => el?.addEventListener('change', onChange));
@@ -535,6 +618,8 @@ async function registerSettingsPanel(ctx) {
                             hintBadge,
                             prefetch,
                             dedupe,
+                            adaptiveTimeout,
+                            smartCache,
                             timeout,
                             debugBox,
                         ].forEach((el) => el?.removeEventListener('change', onChange));
@@ -620,11 +705,8 @@ async function init() {
             }
             printSummary();
 
-            // Startup-prefetch is only meant to speed up init; don't keep reusing snapshots afterward.
-            if (sizeBeforeClear > 0) {
-                STATE.prefetch.clear();
-                debug('prefetch cleared on APP_READY', { size: sizeBeforeClear });
-            }
+            // 使用智能缓存管理，而不是简单的全部清空
+            manageSmartCache();
         });
     }
 
@@ -668,6 +750,14 @@ function renderCocktailSettings(container, ctx) {
                 <input id="stso_dedupe" type="checkbox">
                 复用预取结果（fetch 去重）
             </label>
+            <label class="cocktail-check">
+                <input id="stso_adaptiveTimeout" type="checkbox">
+                自适应超时（根据网络状况）
+            </label>
+            <label class="cocktail-check">
+                <input id="stso_smartCache" type="checkbox">
+                智能缓存管理（保留高使用频率）
+            </label>
             <label class="cocktail-field">
                 <span class="cocktail-label">预取超时(ms)</span>
                 <input id="stso_timeout" type="number" min="0" max="600000" step="500">
@@ -691,6 +781,8 @@ function renderCocktailSettings(container, ctx) {
     const hintBadge = $('#stso_hintBadge');
     const prefetch = $('#stso_prefetch');
     const dedupe = $('#stso_dedupe');
+    const adaptiveTimeout = $('#stso_adaptiveTimeout');
+    const smartCache = $('#stso_smartCache');
     const timeout = $('#stso_timeout');
     const debugBox = $('#stso_debug');
 
@@ -704,6 +796,8 @@ function renderCocktailSettings(container, ctx) {
         if (hintBadge) hintBadge.checked = Boolean(s.hintBadge);
         if (prefetch) prefetch.checked = Boolean(s.prefetchEnabled);
         if (dedupe) dedupe.checked = Boolean(s.dedupeFetch);
+        if (adaptiveTimeout) adaptiveTimeout.checked = Boolean(s.adaptiveTimeout);
+        if (smartCache) smartCache.checked = Boolean(s.smartCache);
         if (timeout) timeout.value = String(s.prefetchTimeoutMs);
         if (debugBox) debugBox.checked = Boolean(s.debug);
     };
@@ -718,6 +812,8 @@ function renderCocktailSettings(container, ctx) {
         if (hintBadge) s.hintBadge = Boolean(hintBadge.checked);
         if (prefetch) s.prefetchEnabled = Boolean(prefetch.checked);
         if (dedupe) s.dedupeFetch = Boolean(dedupe.checked);
+        if (adaptiveTimeout) s.adaptiveTimeout = Boolean(adaptiveTimeout.checked);
+        if (smartCache) s.smartCache = Boolean(smartCache.checked);
         if (timeout) s.prefetchTimeoutMs = clampInt(timeout.value, 0, 600000, DEFAULT_SETTINGS.prefetchTimeoutMs);
         if (debugBox) s.debug = Boolean(debugBox.checked);
 
@@ -745,6 +841,8 @@ function renderCocktailSettings(container, ctx) {
         hintBadge,
         prefetch,
         dedupe,
+        adaptiveTimeout,
+        smartCache,
         timeout,
         debugBox,
     ].forEach((el) => el?.addEventListener('change', onChange));
@@ -759,6 +857,8 @@ function renderCocktailSettings(container, ctx) {
             hintBadge,
             prefetch,
             dedupe,
+            adaptiveTimeout,
+            smartCache,
             timeout,
             debugBox,
         ].forEach((el) => el?.removeEventListener('change', onChange));

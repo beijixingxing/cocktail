@@ -95,6 +95,7 @@ function tryLoadVersionGatedModules() {
 }
 
 import './modules/startup-optimizer.js';
+import './modules/extension-parallel-loader.js';
 import './modules/chat-render-optimizer.js';
 import './modules/preset-drag-optimizer.js';
 import './modules/chat-saving-unblocker.js';
